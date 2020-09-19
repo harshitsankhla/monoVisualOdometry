@@ -38,6 +38,8 @@ Thumbs.db
 
 # This REPO Specific
 images/
+.idea/
 *.pyc
 *.npz
 test.py
+

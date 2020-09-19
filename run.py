@@ -1,44 +1,53 @@
-import sys
-import cv2
+#! /usr/bin/env python3
+
 import os
-# import glob
-import numpy as np
+import cv2
+import argparse
+
 import vision
 import helpers
-import matplotlib.pyplot as plt
 
-kitti = True
-dataset = 'images'
-npzFile_K = 'calibration_data.npz'
+# basic arguments and parsing
+parser = argparse.ArgumentParser()
+parser.add_argument('-k', required=True, type=str, help='Camera Intrinsic Matrix .txt file')
+parser.add_argument('-i', required=True, type=str, help='Images directory for VO Estimation')
+parser.add_argument('--feature_type', type=str, default='FAST', help='Feature descriptor format (FAST, SIFT, SURF)')
+parser.add_argument('--image_format', type=str, default='.png', help='Images format (.png, .jpg, .jpeg, etc)')
+args = parser.parse_args()
 
-if kitti:
-    K = np.array([[718.8560, 0.0, 607.1928], [0.0, 718.8560, 185.2157], [0.0, 0.0, 1.0]])
-else:
-    K = getKfromNPZ(npzFile_K)
+# Read in the Intrinsic Matrix from path
+K = helpers.get_K_from_txt(args.k)
 
-detector = vision.featureDetector('FAST')
-tracker  = vision.featureTracker()
-pose     = np.hstack((np.eye(3, 3), np.zeros((3, 1))))
+# Read image folder and get image sequence
+try:
+    print("Listing images from -> %s" % args.i)
+    images = sorted(os.listdir(args.i))
+    if not all([args.image_format in x for x in images]):
+        raise ValueError("Image directory has format inconsistency")
+    print("Sequence contains %d Images !" % len(images))
+except Exception as e:
+    raise ValueError("Image listing failed")
 
-position_figure = plt.figure()
-position_axes = position_figure.add_subplot(1, 1, 1)
-position_axes.set_aspect('equal', adjustable='box')
+# File to save poses to
+file = open('estimated_poses.txt', 'w')
 
-# imageList = sorted(glob.glob(dataset+"/*.*"))
-imageList = sorted((os.listdir(dataset)))
-imageList = imageList[:100]
+# Start Visual Odometry Estimation
+vo = vision.VisualOdometry(args.feature_type, K)
 
-prev_img = cv2.imread(os.path.join(dataset, imageList[0]), cv2.IMREAD_GRAYSCALE)
-prev_kp  = detector.getFeatures(prev_img)
-for i in range(1,len(imageList),1):
-    cur_img = cv2.imread(os.path.join(dataset, imageList[i]), cv2.IMREAD_GRAYSCALE)
-    prev_kp, cur_kp  = tracker.trackPoints(prev_img, cur_img, prev_kp)
-    E, mask = cv2.findEssentialMat(cur_kp, prev_kp, focal=K[0][0], pp = (K[0][2], K[1][2]),
-                                    method=cv2.RANSAC, prob=0.999, threshold=1.0)
-    _, R, t, mask = cv2.recoverPose(E, cur_kp, prev_kp, focal=K[0][0], pp = (K[0][2], K[1][2]))
-    pose[:,0:3] = np.dot(R, pose[:,0:3])
-    pose[:,3] = pose[:,3] + np.dot(t.reshape(1,3).flatten(),pose[:,0:3])
-    position_axes.scatter(pose[:,3][0], pose[:,3][2])
-    plt.pause(.01)
-    # print(pose)
-    prev_kp  = detector.getFeatures(cur_img)
+# Initialize VO
+image1 = cv2.imread(os.path.join(args.i, images[0]))
+image2 = cv2.imread(os.path.join(args.i, images[1]))
+vo.initialize(image1, image2)
+helpers.write_pose_to_file(file, vo.R, vo.T)
+
+# Loop through the remaining images
+for i in range(2, len(images)):
+    print("Processing frame %d" % i)
+    image = cv2.imread(os.path.join(args.i, images[i]))
+    vo.nextFrame(image)
+    helpers.write_pose_to_file(file, vo.R, vo.T)
+
+print("Done !")
+
+
+

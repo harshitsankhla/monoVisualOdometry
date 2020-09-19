@@ -41,5 +41,5 @@ images/
 .idea/
 *.pyc
 *.npz
-test.py
+.txt
 

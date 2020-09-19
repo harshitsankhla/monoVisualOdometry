@@ -16,7 +16,12 @@ class FeatureDetector:
         else:
             raise ValueError("Invalid Feature Type !")
 
-    def getFeatures(self, img):
+    def getKeypoints(self, img):
+        """Use a feature detector to get keypoints in an image
+
+        :param img: image to detect keypoints in
+        :return: detected keypoints as array of points
+        """
         points2f = self.detector.detect(img, None)
         keypoints = cv2.KeyPoint_convert(points2f)
         return keypoints
@@ -27,6 +32,13 @@ class FeatureTracker:
         self.lk_params = dict(winSize=(21, 21), criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 30, 0.01))
 
     def trackPoints(self, prevImage, curImage, prevPoints):
+        """Track keypoints in previous to current image
+
+        :param prevImage: previous image (track from)
+        :param curImage: current image (track to)
+        :param prevPoints: keypoints to track in previous image
+        :return: refined points that are tracked between both images
+        """
         curPoints, status, error = cv2.calcOpticalFlowPyrLK(prevImage, curImage, prevPoints, None, **self.lk_params)
         status = status.reshape(status.shape[0])
         prevPoints = prevPoints[status == 1]
@@ -41,7 +53,7 @@ class VisualOdometry:
         self.K = K
         self.lastImage = 0
         self.lastPoints = 0
-        self.numFeatures = 0
+        self.numKeypoints = 0
         self.featureDetector = FeatureDetector(featureType)
         self.featureTracker = FeatureTracker()
 
@@ -50,19 +62,19 @@ class VisualOdometry:
 
         For initialization, get keypoints from first frame and track them in the second
         then calculate Essential Matrix then pose between the images and set our initial
-        otation and translation to be the relative pose between image 2 and 1
+        otation and translation to be the relative pose from image 2 to 1
 
         :param image1: first image of the sequence
         :param image2: second image of the sequence
         """
-        kp1 = self.featureDetector.getFeatures(image1)
+        kp1 = self.featureDetector.getKeypoints(image1)
         self.lastPoints, curPoints = self.featureTracker.trackPoints(image1, image2, kp1)
-        E, mask = cv2.findEssentialMat(self.lastPoints, curPoints, self.K, method=cv2.RANSAC, threshold=0.999)
+        E, mask = cv2.findEssentialMat(curPoints, self.lastPoints, self.K, method=cv2.RANSAC, prob=0.99, threshold=0.999)
         _, self.R, self.T, mask = cv2.recoverPose(E, self.lastPoints, curPoints, self.K)
 
         self.lastImage = image2
         self.lastPoints = curPoints
-        self.numFeatures = curPoints.shape[0]
+        self.numKeypoints = curPoints.shape[0]
 
         print("Successfully initialized VO with first 2 frames !")
 
@@ -74,13 +86,14 @@ class VisualOdometry:
 
         :param image: next image in VO sequence
         """
-        # if we have less than 2000 features left after last processed frame, then find new features
-        if self.numFeatures < 2000:
-            self.lastPoints = self.featureDetector.getFeatures(self.lastImage)
+        # if we have less than 500 keypoints left after the last processed frame, then find new ones
+        if self.numKeypoints < 500:
+            print('Re-detecting Keypoints')
+            self.lastPoints = self.featureDetector.getKeypoints(self.lastImage)
 
         self.lastPoints, curPoints = self.featureTracker.trackPoints(self.lastImage, image, self.lastPoints)
-        E, mask = cv2.findEssentialMat(self.lastPoints, curPoints, self.K, method=cv2.RANSAC, threshold=0.999)
-        _, R, T, mask = cv2.recoverPose(E, self.lastPoints, curPoints, self.K)
+        E, mask = cv2.findEssentialMat(curPoints, self.lastPoints, self.K, method=cv2.RANSAC, prob=0.99, threshold=0.999)
+        _, R, T, mask = cv2.recoverPose(E, curPoints, self.lastPoints, self.K)
 
         # pose update
         self.T = self.T + self.R.dot(T)
@@ -88,4 +101,4 @@ class VisualOdometry:
 
         self.lastImage = image
         self.lastPoints = curPoints
-        self.numFeatures = curPoints.shape[0]
+        self.numKeypoints = curPoints.shape[0]

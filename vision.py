@@ -5,14 +5,17 @@ class FeatureDetector:
     def __init__(self, detector):
         self.type = detector
         if self.type == 'SIFT':
-            self.detector = cv2.xfeatures2d.SIFT_create(4000)
+            self.detector = cv2.xfeatures2d.SIFT_create(nfeatures=1000)
             self.tag = 'SIFTed'
         elif self.type == 'SURF':
-            self.detector = cv2.xfeatures2d.SURF_create(4000)
+            self.detector = cv2.xfeatures2d.SURF_create()
             self.tag = 'SURFed'
         elif self.type == 'FAST':
             self.detector = cv2.FastFeatureDetector_create(threshold=25, nonmaxSuppression=True)
             self.tag = 'FASTed'
+        elif self.type == 'ORB':
+            self.detector = cv2.ORB_create(nfeatures=1000)
+            self.tag = 'ORBed'
         else:
             raise ValueError("Invalid Feature Type !")
 

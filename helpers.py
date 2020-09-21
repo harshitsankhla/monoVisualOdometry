@@ -1,11 +1,13 @@
+import os
+import cv2
 import numpy as np
 
 
 def get_K_from_txt(path):
     """Get The K-Matrix
 
-    covert a .txt containing Intrinsic Matrix (K)
-    values to a 2D Float-Value Array
+    convert a .txt containing comma separated
+    Intrinsic Matrix (K) values to a 2D Array
 
     :param path: .txt file path to K-Matrix values
     :return: K-matrix as a 2D np-array
@@ -35,3 +37,28 @@ def write_pose_to_file(file, R, T):
     file.write('%s %s %s ' % (str(R[2, 0]), str(R[2, 1]), str(R[2, 2])))
     file.write('%s' % str(T[2, 0]))
     file.write('\n')
+
+
+def get_images_from_video(file, folder):
+    """Parse a video to image sequence for VO
+
+    :param file: input video file to get images from
+    :param folder: directory to save the images to
+    """
+    vidcap = cv2.VideoCapture(file)
+    # Saving images at 1 Frame every second
+    save_rate = 1
+    frame_rate = vidcap.get(cv2.CAP_PROP_FPS)
+    print('Video FPS = %d | Saving FPS = %d' % (frame_rate, save_rate))
+    success, image = vidcap.read()
+    count = 0
+    print('Processing Video -> %s' % file)
+    while success:
+        frameId = vidcap.get(1)
+        if (frameId-1) % np.floor(frame_rate) == 0:
+            cv2.imwrite(os.path.join(folder, "frame%d.png" % count), image)
+            print("Saved Video Frame %d" % frameId)
+            count += 1
+        success, image = vidcap.read()
+
+    print('Saved %d images to %s' % (count, folder))

@@ -1,29 +1,37 @@
 # Monocular Visual Odometry
-Python implementation for 2D-2D monocular visual odometry. [Work in Progress]
+Python3 implementation for 2D-2D monocular visual odometry. [Work in Progress]
 
 ## Preparation
+Python Packages Required - 
+1. OpenCV
+2. NumPy
 
 ## Usage
 ```
-usage: run.py [-h] -k K -i I [--feature_type FEATURE_TYPE]
-
-[--image_format IMAGE_FORMAT] [--result_file RESULT_FILE]
-
-[--video VIDEO]
+usage: run.py [-h] -k K -i I [-scale] [--feature_type FEATURE_TYPE]
+              [--image_format IMAGE_FORMAT] [--result_file RESULT_FILE]
+              [--poses_file POSES_FILE] [--video VIDEO]
 
 Arguments:
 
-	-k K  (Camera Intrinsic Matrix .txt file)
+  -h, --help                      show this help message and exit
 
-	-i I  (Images directory for VO Estimation)
+  -k K                            Camera Intrinsic Matrix .txt file (REQUIRED)
 
-	--feature_type FEATURE_TYPE (Feature descriptor format (FAST, ORB, SIFT, SURF))
+  -i I                            Images directory for VO Estimation (REQUIRED)
 
-	--image_format IMAGE_FORMAT (Images format (png, jpg, jpeg, etc))
+  -scale                          Enable Scale Consistent Odometry (Need to Provide GT Poses)
+                        
+  --feature_type FEATURE_TYPE     Feature descriptor format (FAST, ORB, SIFT, SURF)
 
-	--result_file RESULT_FILE (Estimated poses txt file name)
+  --image_format IMAGE_FORMAT     Images format (png, jpg, jpeg, etc)
+                        
+  --result_file RESULT_FILE       Estimated poses txt file name
+                        
+  --poses_file POSES_FILE         Ground Truth Poses txt (for scale and visualization)
+                        
+  --video VIDEO                   Video file to parse for VO images
 
-	--video VIDEO (Video file to parse for VO images)
 ```
 ## Results
 

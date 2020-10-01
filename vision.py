@@ -97,7 +97,7 @@ class VisualOdometry:
         kp1 = self.featureDetector.getKeypoints(image1)
         self.lastPoints, curPoints = self.featureTracker.trackPoints(image1, image2, kp1)
         E, mask = cv2.findEssentialMat(curPoints, self.lastPoints, self.K, method=cv2.RANSAC, prob=0.99, threshold=0.999)
-        _, self.R, self.T, mask = cv2.recoverPose(E, self.lastPoints, curPoints, self.K)
+        _, self.R, self.T, mask = cv2.recoverPose(E, curPoints, self.lastPoints, self.K)
 
         self.frameNumber = 2
         self.lastImage = image2
@@ -115,7 +115,7 @@ class VisualOdometry:
         :param image: next image in VO sequence
         """
         # if we have less than 500 keypoints left after the last processed frame, then find new ones
-        if self.numKeypoints < 500:
+        if self.numKeypoints < 1500:
             print('Re-detecting Keypoints')
             self.lastPoints = self.featureDetector.getKeypoints(self.lastImage)
 
@@ -125,7 +125,7 @@ class VisualOdometry:
 
         # pose update
         if self.scale:
-            self.T = self.T + self.getScale(self.frameNumber) * self.R.dot(T)
+            self.T = self.T + (self.getScale(self.frameNumber) * self.R.dot(T))
         else:
             self.T = self.T + self.R.dot(T)
         self.R = R.dot(self.R)

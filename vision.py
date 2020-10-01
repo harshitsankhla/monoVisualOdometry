@@ -1,4 +1,5 @@
 import cv2
+import numpy as np
 
 
 class FeatureDetector:
@@ -50,15 +51,38 @@ class FeatureTracker:
 
 
 class VisualOdometry:
-    def __init__(self, featureType, K):
+    def __init__(self, featureType, K, scale=None, gt_poses_file=None):
         self.R = 0
         self.T = 0
         self.K = K
+        self.scale = scale
         self.lastImage = 0
         self.lastPoints = 0
+        self.frameNumber = 0
         self.numKeypoints = 0
         self.featureDetector = FeatureDetector(featureType)
         self.featureTracker = FeatureTracker()
+
+        if scale:
+            assert gt_poses_file is not None, "Must provide Ground Truth Poses if True Scale VO Required"
+            with open(gt_poses_file) as file:
+                self.gt_poses = file.readlines()
+
+    def getScale(self, frameNumber):
+        """calculate scale from ground truth poses provided
+
+        :param frameNumber: current frame we are processing
+        :return:
+        """
+        ss = self.gt_poses[frameNumber - 1].strip().split()
+        x_prev = float(ss[3])
+        y_prev = float(ss[7])
+        z_prev = float(ss[11])
+        ss = self.gt_poses[frameNumber].strip().split()
+        x = float(ss[3])
+        y = float(ss[7])
+        z = float(ss[11])
+        return np.sqrt((x - x_prev)**2 + (y - y_prev)**2 + (z - z_prev)**2)
 
     def initialize(self, image1, image2):
         """Initialize VO System with first 2 frames
@@ -75,6 +99,7 @@ class VisualOdometry:
         E, mask = cv2.findEssentialMat(curPoints, self.lastPoints, self.K, method=cv2.RANSAC, prob=0.99, threshold=0.999)
         _, self.R, self.T, mask = cv2.recoverPose(E, self.lastPoints, curPoints, self.K)
 
+        self.frameNumber = 2
         self.lastImage = image2
         self.lastPoints = curPoints
         self.numKeypoints = curPoints.shape[0]
@@ -99,9 +124,13 @@ class VisualOdometry:
         _, R, T, mask = cv2.recoverPose(E, curPoints, self.lastPoints, self.K)
 
         # pose update
-        self.T = self.T + self.R.dot(T)
+        if self.scale:
+            self.T = self.T + self.getScale(self.frameNumber) * self.R.dot(T)
+        else:
+            self.T = self.T + self.R.dot(T)
         self.R = R.dot(self.R)
 
         self.lastImage = image
         self.lastPoints = curPoints
         self.numKeypoints = curPoints.shape[0]
+        self.frameNumber = self.frameNumber + 1

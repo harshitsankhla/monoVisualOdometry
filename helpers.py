@@ -62,3 +62,4 @@ def get_images_from_video(file, folder):
         success, image = vidcap.read()
 
     print('Saved %d images to %s' % (count, folder))
+
